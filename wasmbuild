@@ -79,6 +79,8 @@ export LIBS="\
 
 if [ -z "${1}" ]; then
     $CC $CFLAGS $LDFLAGS -o $(basename $(pwd)).wasm *.c
+elif [ "$1" = make ]; then
+    $@
 else
     $CC $CFLAGS $LDFLAGS -o $(basename $(pwd)).wasm $@
 fi
