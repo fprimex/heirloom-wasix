@@ -120,6 +120,8 @@ if [ -d libcommon ]; then
     fi
     cd ..
   done
+
+  ls */*.wasm
   exit
 fi
 
