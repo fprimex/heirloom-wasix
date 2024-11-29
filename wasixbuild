@@ -15,7 +15,7 @@
 # 3. From inside the tool directory, issuing explicit build commands
 #    CC CFLAGS LDFLAGS $@
 #      cd cal
-#      ../wasixbuild -o cal.c
+#      ../wasixbuild -c cal.c
 #
 # 4. From inside the tool directory, issuing make commands
 #    cd cal
