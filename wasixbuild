@@ -5,21 +5,21 @@
 #
 # 1. From the base directory to try to build everything,
 #    starting with libcommon, using makefiles.
-#      ./wasmbuild
+#      ./wasixbuild
 #
 # 2. From inside the tool directory to blindly compile, running (essentially)
 #    CC CFLAGS LDFLAGS -o tool.wasm *.c ../libcommon/libcommon.a
 #      cd cal
-#      ../wasmbuild
+#      ../wasixbuild
 #
 # 3. From inside the tool directory, issuing explicit build commands
 #    CC CFLAGS LDFLAGS $@
 #      cd cal
-#      ../wasmbuild -o cal.c
+#      ../wasixbuild -o cal.c
 #
 # 4. From inside the tool directory, issuing make commands
 #    cd cal
-#    ../wasmbuild make -f Makefile.mk
+#    ../wasixbuild make -f Makefile.mk
 
 if [ -z "${WASI_SDK}" ]; then
     echo "WASI_SDK is not found"
@@ -93,7 +93,7 @@ if [ -d libcommon ]; then
 
     cd $d
     if [ -f Makefile.mk ]; then
-      if ! ../wasmbuild make -f Makefile.mk ; then
+      if ! ../wasixbuild make -f Makefile.mk ; then
         $CC $CFLAGS $LDFLAGS -o $(basename $(pwd)).wasm *.c ../libcommon/libcommon.a
       fi
     else
