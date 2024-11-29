@@ -1,25 +1,34 @@
 #!/bin/sh
 
-# This script is derived from the wasix test code builder.
-# It can be called in 4 ways.
-#
-# 1. From the base directory to try to build everything,
-#    starting with libcommon, using makefiles.
-#      ./wasixbuild
-#
-# 2. From inside the tool directory to blindly compile, running (essentially)
-#    CC CFLAGS LDFLAGS -o tool.wasm *.c ../libcommon/libcommon.a
-#      cd cal
-#      ../wasixbuild
-#
-# 3. From inside the tool directory, issuing explicit build commands
-#    CC CFLAGS LDFLAGS $@
-#      cd cal
-#      ../wasixbuild -c cal.c
-#
-# 4. From inside the tool directory, issuing make commands
-#    cd cal
-#    ../wasixbuild make -f Makefile.mk
+usage () {
+cat <<EOT
+This script is derived from the wasix test code builder.
+It can be called in 4 ways.
+
+1. From the base directory to try to build everything,
+   starting with libcommon, using makefiles.
+     ./wasixbuild
+
+2. From inside the tool directory to blindly compile, running (essentially)
+   CC CFLAGS LDFLAGS -o tool.wasm *.c ../libcommon/libcommon.a
+     cd cal
+     ../wasixbuild
+
+3. From inside the tool directory, issuing explicit build commands
+   CC CFLAGS LDFLAGS $@
+     cd cal
+     ../wasixbuild -c cal.c
+
+4. From inside the tool directory, issuing make commands
+   cd cal
+   ../wasixbuild make -f Makefile.mk
+EOT
+}
+
+if [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; then
+  usage
+  exit
+fi
 
 if [ -z "${WASI_SDK}" ]; then
     echo "WASI_SDK is not found"
@@ -93,10 +102,20 @@ if [ -d libcommon ]; then
 
     cd $d
     if [ -f Makefile.mk ]; then
-      if ! ../wasixbuild make -f Makefile.mk ; then
+      # build with make
+      if make -f Makefile.mk ; then
+        # if it succeeded find and rename webassembly files
+        for f in *; do
+          if file $f | grep -q WebAssembly 2>/dev/null; then
+            mv $f $f.wasm
+          fi
+        done
+      else
+        # if make fails try to put something together with *.c
         $CC $CFLAGS $LDFLAGS -o $(basename $(pwd)).wasm *.c ../libcommon/libcommon.a
       fi
     else
+      # if no make file try to put something together with *.c
       $CC $CFLAGS $LDFLAGS -o $(basename $(pwd)).wasm *.c ../libcommon/libcommon.a
     fi
     cd ..
