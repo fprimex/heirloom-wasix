@@ -1,12 +1,25 @@
 #!/bin/sh
 
 # This script is derived from the wasix test code builder.
-# Call it from inside the tool directory. For example:
+# It can be called in 4 ways.
 #
-# cd cal
-# ../wasmbuild
-# or
-# ../wasmbuild <explicit compiler options>
+# 1. From the base directory to try to build everything,
+#    starting with libcommon, using makefiles.
+#      ./wasmbuild
+#
+# 2. From inside the tool directory to blindly compile, running (essentially)
+#    CC CFLAGS LDFLAGS -o tool.wasm *.c ../libcommon/libcommon.a
+#      cd cal
+#      ../wasmbuild
+#
+# 3. From inside the tool directory, issuing explicit build commands
+#    CC CFLAGS LDFLAGS $@
+#      cd cal
+#      ../wasmbuild -o cal.c
+#
+# 4. From inside the tool directory, issuing make commands
+#    cd cal
+#    ../wasmbuild make -f Makefile.mk
 
 if [ -z "${WASI_SDK}" ]; then
     echo "WASI_SDK is not found"
@@ -25,7 +38,7 @@ export CC="$WASI_SDK/bin/clang"
 export CXX="$WASI_SDK/bin/clang"
 export CFLAGS="\
 -I../libcommon \
--D__dietlibc__ \
+-D__dietlibc__=1 \
 -DSUS=1 \
 --sysroot=$WASIX_SYSROOT \
 -matomics \
@@ -41,7 +54,9 @@ export CFLAGS="\
 -O3 \
 -g \
 -flto"
-export LD="$WASI_SDK/bin/wasm-ld"
+export CFLAGSS="$CFLAGS"
+#export LD="$WASI_SDK/bin/wasm-ld"
+export LD="$CC"
 export LDFLAGS="\
 -Wl,--shared-memory \
 -Wl,--max-memory=4294967296 \
@@ -51,24 +66,6 @@ export LDFLAGS="\
 -Wl,--export=__stack_pointer \
 -Wl,--export=__data_end \
 -Wl,--export=__wasm_init_tls \
--Wl,--export=__wasm_signal \
--Wl,--export=__tls_size \
--Wl,--export=__tls_align \
--Wl,--export=__tls_base \
--lwasi-emulated-mman \
--O3 \
--g \
--flto"
-export LIBS="\
--Wl,--shared-memory \
--Wl,--max-memory=4294967296 \
--Wl,--import-memory \
--Wl,--export-dynamic \
--Wl,--export=__heap_base \
--Wl,--export=__stack_pointer \
--Wl,--export=__data_end \
--Wl,--export=__wasm_init_tls \
--Wl,--export=__wasm_signal \
 -Wl,--export=__tls_size \
 -Wl,--export=__tls_align \
 -Wl,--export=__tls_base \
@@ -77,13 +74,67 @@ export LIBS="\
 -g \
 -flto"
 
-if [ -z "${1}" ]; then
-    $CC $CFLAGS $LDFLAGS -o $(basename $(pwd)).wasm *.c
-elif [ "$1" = make ]; then
-    $@
-else
-    $CC $CFLAGS $LDFLAGS -o $(basename $(pwd)).wasm $@
+#-Wl,--export=__wasm_signal \
+
+export LCOMMON=../libcommon/libcommon.a
+
+# Build everything if in base dir
+if [ -d libcommon ]; then
+  rm */*.o */*.wasm libcommon/libcommon.a
+
+  cd libcommon
+  make -f Makefile.mk
+  cd ..
+
+  for d in */; do
+    if [ libcommon/ = "$d" ]; then
+      continue
+    fi
+
+    cd $d
+    if [ -f Makefile.mk ]; then
+      if ! ../wasmbuild make -f Makefile.mk ; then
+        $CC $CFLAGS $LDFLAGS -o $(basename $(pwd)).wasm *.c ../libcommon/libcommon.a
+      fi
+    else
+      $CC $CFLAGS $LDFLAGS -o $(basename $(pwd)).wasm *.c ../libcommon/libcommon.a
+    fi
+    cd ..
+  done
+  exit
 fi
+
+if [ make = "$1" ]; then
+  # Use the provided make command, then look for the result and rename it to <tool>.wasm
+  $@
+  util="$(basename $(pwd))"
+  if [ -f $util ] && file $util | grep -q WebAssembly 2>/dev/null; then
+    mv $util $util.wasm
+  fi
+  exit
+elif [ -z "$1" ]; then
+  # If there's no argument given, either make libcommon or try to blindly compile a tool
+  case "$(basename $(pwd))" in
+    libcommon)
+      make -f Makefile.mk
+      ;;
+    *)
+      $CC $CFLAGS $LDFLAGS -o $(basename $(pwd)).wasm *.c ../libcommon/libcommon.a
+      ;;
+  esac
+else
+  # If an argument is given, use those in a compile command
+  $CC $CFLAGS $LDFLAGS $@
+fi
+
+
+#if [ -z "${1}" ]; then
+#    $CC $CFLAGS $LDFLAGS -o $(basename $(pwd)).wasm *.c
+#elif [ "$1" = make ]; then
+#    $@
+#else
+#    $CC $CFLAGS $LDFLAGS -o $(basename $(pwd)).wasm $@
+#fi
 
 #wasm-opt -O4 --asyncify -g main.wasm -o main.wasm
 
